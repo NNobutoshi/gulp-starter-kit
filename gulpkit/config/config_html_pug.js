@@ -6,8 +6,7 @@
  * @requires ./get_env_status.js
  */
 
-import { cwd, env } from 'node:process';
-import path         from 'node:path';
+import { env } from 'node:process';
 
 import { srcDir, distDir, commonOptions } from './common.js';
 import mergeByEnv                         from './merge_by_env.js';
@@ -16,8 +15,7 @@ export { mergedConfig as config, mergedOptions as options };
 
 const
   TASK_NAME = 'html_pug',
-  NODE_ENV  = env.NODE_ENV,
-  CWD       = cwd()
+  NODE_ENV  = env.NODE_ENV
 ;
 const
   SRC_DIR  = srcDir[ NODE_ENV ],
@@ -44,7 +42,7 @@ const devConfig = {
   ],
   dist : DIST_DIR,
   base : SRC_DIR,
-  data : path.resolve( CWD, `${ SRC_DIR }/_data/_pug_data.json` ),
+  commonDataFileName : '_pug_common_data.json',
 };
 
 /**
@@ -73,13 +71,13 @@ const devOptions = {
     enabled  : true,
   },
   formatHtml : {
-    repairAElement        : true,
-    commentPosition       : 'inside', // inside or outside
-    commentOnOneLine      : true,
-    blankLineAfterComment : true,
-    indent                : true,
-    uglyAElementRegEx     : /^([\t ]*)([^\r\n]*?<a [^>]+>(\r?\n|\r)[\s\S]*?<\/a>[^\r\n]*)$/mg,
-    endCommentRegEx       : /(<\/.+?>)(\r?\n|\r)(\s*)<!--(\/[.#].+?)-->/mg,
+    repairAElement           : true,
+    endTagCommentPosition    : 'inside', // inside or outside
+    endTagCommentOnOneLine   : true,
+    addBlankLineAfterComment : true,
+    indent                   : true,
+    uglyAElementRegEx        : /^([\t ]*)([^\r\n]*?<a [^>]+>(\r?\n|\r)[\s\S]*?<\/a>[^\r\n]*)$/mg,
+    endCommentRegEx          : /(<\/.+?>)(\r?\n|\r)(\s*)<!--(\/[.#].+?)-->/mg,
   },
   beautify : {
     indent_size : 2,

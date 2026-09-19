@@ -38,32 +38,30 @@ import { config, options } from '../config/config_html_pug.js';
 export { html_pug as default };
 
 const
-  CWD = cwd(),
-  BASE_COMMON_DATA_NAME = '_pug_common_data'
+  CWD = cwd()
 ;
-
 
 /**
  * Pug を実行するタスク。<br>
- * default としてエクスポート。
+ * default としてエクスポート。/
  * @memberof module:tasks/html_pug
  * @returns {Stream} - Gulp ストリーム
  */
 function html_pug() {
   const
     pugCommonDataMap = new Map(),
-    pugPageData      = new Map()
+    pugPageDataMap   = new Map()
   ;
   if ( options.watch.enabled === true && !html_pug.watchIsEnabled ) {
     html_pug.watchIsEnabled = true;
   }
   return gulpSrc( config.dataSrc )
     .pipe( plumber( options.plumber ) )
-    .pipe( _loadPugData( pugCommonDataMap, pugPageData ) )
+    .pipe( _loadPugData( pugCommonDataMap, pugPageDataMap ) )
     .pipe( gulpSrc( config.src.concat( config.dataSrc ) ) )
     .pipe( gulpSrc( config.imgSrc, { read : false } ) ) // 画像ファイルの更新も検知させる。
     .pipe( diff( options.diff ,_collectImporterFiles ,organizeSelectedFileMap ) )
-    .pipe( _setPugData( pugCommonDataMap, pugPageData ) )
+    .pipe( _setPugData( pugCommonDataMap, pugPageDataMap ) )
     .pipe( _renderPug() )
     .pipe( _formatHtml() )
     .pipe( _injectImageSize() )
@@ -85,7 +83,7 @@ if ( options.watch.enabled === true ) {
  * @param {Map} pugPageData - 各ページ固有に利用するデータのMap
  * @returns {Stream} - Gulp ストリーム
  */
-function _loadPugData( pugCommonDataMap, pugPageData ) {
+function _loadPugData( pugCommonDataMap, pugPageDataMap ) {
   return through.obj( function _transform( file, enc, callback ) {
     let data;
     try {
@@ -93,11 +91,11 @@ function _loadPugData( pugCommonDataMap, pugPageData ) {
     } catch ( err ) {
       return callback( err );
     }
-    if ( file.path.includes( BASE_COMMON_DATA_NAME ) === true ) {
+    if ( file.path.endsWith( config.commonDataFileName ) === true ) {
       pugCommonDataMap.set( file.path, data );
     } else {
       Object.keys( data ).forEach( ( key ) => {
-        pugPageData.set( key, data[ key ] );
+        pugPageDataMap.set( key, data[ key ] );
       } );
     }
     callback();
@@ -242,7 +240,7 @@ function _renderPug() {
  */
 function _formatHtml() {
   const
-    { uglyAElementRegEx, endCommentRegEx, commentPosition } = options.formatHtml
+    { uglyAElementRegEx, endCommentRegEx, endTagCommentPosition } = options.formatHtml
   ;
   return through.obj( function _transform( file, enc, callback ) {
     let contents = file.contents.toString();
@@ -271,8 +269,8 @@ function _formatHtml() {
       contents = contents.replace( /^([^\S\n\r\f]+)/mg, '' );
     }
     // 閉じタグ付近に付けるコメントに関する体裁。
-    if ( commentPosition === 'inside' || commentPosition === 'outside' ) {
-      contents = contents.replace( endCommentRegEx, _formatEndComment );
+    if ( endTagCommentPosition === 'inside' || endTagCommentPosition === 'outside' ) {
+      contents = contents.replace( endCommentRegEx, _formatEndTagComment );
     }
     file.contents = Buffer.from( contents );
     callback( null, file );
@@ -379,20 +377,20 @@ async function _addImageDimensions( match, file, map, errorCallback ) {
  * @param {string} comment RegExP で得られるコメントタグの'&lt;!--'と'--&gt;'を除く文字列
  * @returns {string} 置換文字列
  */
-function _formatEndComment( _full, closingTag, lineFeed, indent, comment ) {
+function _formatEndTagComment( _full, endTag, lineFeed, indent, comment ) {
   const
-    htmlComment = `<!--${ comment }-->`,
-    { commentPosition, commentOnOneLine, blankLineAfterComment } = options.formatHtml
+    endTagComment = `<!--${ comment }-->`,
+    { endTagCommentPosition, endTagCommentOnOneLine, addBlankLineAfterComment } = options.formatHtml
   ;
   const
-    commentIsInside = ( commentPosition === 'inside' )
+    commentIsInside = ( endTagCommentPosition === 'inside' )
   ;
   const
     // コメントと閉じタグの順序を決定。
     parts = ( commentIsInside === true )
-      ? [ htmlComment, closingTag ]
-      : [ closingTag, htmlComment ],
-    joiner = ( commentOnOneLine === true )
+      ? [ endTagComment, endTag ]
+      : [ endTag, endTagComment ],
+    joiner = ( endTagCommentOnOneLine === true )
       ? ''
       : `${ lineFeed }${ indent }`
   ;
@@ -401,7 +399,7 @@ function _formatEndComment( _full, closingTag, lineFeed, indent, comment ) {
     result = parts.join( joiner )
   ;
   // 空行を付ける場合。
-  if ( blankLineAfterComment === true ) {
+  if ( addBlankLineAfterComment === true ) {
     result += lineFeed;
   }
   return result;
